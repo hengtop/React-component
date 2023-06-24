@@ -1,0 +1,16 @@
+/dist/*
+.local
+.output.js
+/node_modules/**
+
+**/*.svg
+**/*.sh
+**/*.css
+**/*.less
+**/*.scss
+**/*.html
+
+/public/*
+
+.**
+commitlint.config.cjs
