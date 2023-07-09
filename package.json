@@ -18,7 +18,9 @@
   "dependencies": {
     "heng-request": "^2.0.2",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-native-picker": "^4.3.7",
+    "react-router-dom": "^6.14.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^17.4.2",
