@@ -10,16 +10,26 @@ export default function demo() {
   }, []);
 
   const getList = useCallback(async () => {
-    const list = await generationList(100000);
+    const list = await generationList(10);
     setList(list);
-    console.log('success');
   }, []);
+  const handleScrollBottom = async (loadMore: (list: unknown[]) => void) => {
+    const list = await generationList(10);
+    loadMore(list);
+  };
   return (
     <Scroll
       list={list}
-      estimateHeight={50}
-      cacheCount={10}
+      estimateHeight={60}
+      cacheCount={1}
       height={500}
+      children={(item, index) => (
+        <div className="item">
+          <h2>{index}</h2>
+          {index}----{item.content}
+        </div>
+      )}
+      onScrollBottom={handleScrollBottom}
     ></Scroll>
   );
 }

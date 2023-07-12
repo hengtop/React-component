@@ -16,6 +16,7 @@
     "commit": "cz"
   },
   "dependencies": {
+    "@faker-js/faker": "^8.0.2",
     "heng-request": "^2.0.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

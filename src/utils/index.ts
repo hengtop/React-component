@@ -12,16 +12,15 @@ export function throttle(fn: (...arg: any[]) => any, delay = 16.6) {
 }
 
 export function generationList(count: number): Promise<unknown[]> {
-  console.log('888');
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     setTimeout(() => {
       const list = new Array(count).fill(0).map((item, index) => ({
         index,
-        h: Math.ceil(Math.random() * 250 + 50),
-        // content:faker.lorem.lines({
-        //   min:2,
-        //   max:20
-        // })
+        //h: Math.ceil(Math.random() * 250 + 50),
+        content: faker.lorem.lines({
+          min: 10,
+          max: 20,
+        }),
       }));
       resolve(list);
     }, 100);

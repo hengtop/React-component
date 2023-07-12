@@ -1,24 +1,33 @@
+import type { ICalculationList } from './index';
+import type { Any } from '@/types';
 import { useCallback, useRef } from 'react';
 
 export const useScrollTool = () => {
-  const sumHeight = useCallback((list: any[], start = 0, end = list.length) => {
-    let height = 0;
-    for (let i = start; i < end; i++) {
-      height += list[i].height;
-    }
-    return height;
-  }, []);
-
-  const findIndexOverHeight = useCallback((list: any, offset: number) => {
-    let currentHeight = 0;
-    for (let i = 0; i < list.length; i++) {
-      currentHeight += list[i].height;
-      if (currentHeight > offset) {
-        return i;
+  const sumHeight = useCallback(
+    (list: ICalculationList[], start = 0, end = list.length) => {
+      let height = 0;
+      if (end > list.length) end = list.length;
+      for (let i = start; i < end; i++) {
+        height += list[i].domHeight;
       }
-    }
-    return list.length - 1;
-  }, []);
+      return height;
+    },
+    [],
+  );
+
+  const findIndexOverHeight = useCallback(
+    (list: ICalculationList[], offset: number) => {
+      let currentHeight = 0;
+      for (let i = 0; i < list.length; i++) {
+        currentHeight += list[i].domHeight;
+        if (currentHeight > offset) {
+          return i;
+        }
+      }
+      return list.length - 1;
+    },
+    [],
+  );
 
   // function binarySearch() {
   //   let left = 0;
@@ -54,7 +63,7 @@ export const useScrollTool = () => {
     [],
   );
 
-  const updateRefState = <T extends Record<string, any>>(
+  const updateRefState = <T extends Record<string, Any>>(
     obj: T,
   ): [T, (object: Partial<T>) => void] => {
     const ref = useRef<T>(obj);
