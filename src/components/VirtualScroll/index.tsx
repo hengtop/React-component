@@ -18,7 +18,6 @@ export interface IScrollProps {
   children: (props: Any, index: number) => ReactElement;
   itemKey?: string;
   estimateHeight?: number;
-  cacheCount?: number;
   height?: number;
   scrollBottomHeight?: number;
   onScrollBottom?: (loadMore: (list: unknown[]) => void) => void;
@@ -43,6 +42,7 @@ interface IScrollRef {
   sliderHeight: number;
   startPosY: number;
   startTop: number;
+  cacheCount: number;
   positionHeight: Record<string, number>[];
 }
 
@@ -51,7 +51,6 @@ export default memo(function Scroll(props: IScrollProps) {
   const {
     list = [],
     estimateHeight = 30,
-    cacheCount = 5,
     height: containerHeight = 500,
     itemKey,
     children,
@@ -72,6 +71,7 @@ export default memo(function Scroll(props: IScrollProps) {
   const [renderListWithCache, setRenderListWithCache] = useState<
     ICalculationList[]
   >([]);
+  const [isMounted, setIsMounted] = useState(false);
   //redux hooks
 
   //other hooks
@@ -91,33 +91,66 @@ export default memo(function Scroll(props: IScrollProps) {
     startPosY: 0,
     startTop: 0,
     positionHeight: [],
+    cacheCount: 2,
   });
-
   // 处理下原数据
   useEffect(() => {
-    const newList = list.map((item, index) => ({
-      domHeight: estimateHeight,
-      index,
-      content: item,
-    }));
-    // 初始化数据
-    setScrollState({
-      calculationList: newList,
-      contentHeight: newList.length * estimateHeight,
-    });
-    // 初始化渲染
-    render();
-    updateSlider();
+    // 只会初始化一次
+    if (scrollStateRef.calculationList.length === 0) {
+      const newList = list.map((item, index) => ({
+        domHeight: estimateHeight,
+        index,
+        content: item,
+      }));
+      // 初始化数据
+      // 预估一屏多少元素
+      setScrollState({
+        calculationList: newList,
+        contentHeight: newList.length * estimateHeight,
+        cacheCount: calculateCacheCount(newList.length),
+      });
+      // 初始化渲染
+      render('init');
+      updateSlider();
+      updateScroll();
+    }
+
+    $list.current?.addEventListener('wheel', mouseWheelHandleFn);
+    $slider.current?.addEventListener('mousedown', saveScrolloffsetPos);
+    $container.current?.addEventListener('mouseleave', cancelDragging);
+    $container.current?.addEventListener('mouseup', cancelDragging);
+    $slider.current?.addEventListener('click', stopPropagationFn);
+    $container.current?.addEventListener('mousemove', mouseMoveHandleFn);
+    return () => {
+      $list.current?.removeEventListener('wheel', mouseWheelHandleFn);
+      $slider.current?.removeEventListener('mousedown', saveScrolloffsetPos);
+      $container.current?.removeEventListener('mouseup', cancelDragging);
+      $container.current?.removeEventListener('mouseleave', cancelDragging);
+      $slider.current?.removeEventListener('click', stopPropagationFn);
+      $container.current?.removeEventListener('mousemove', mouseMoveHandleFn);
+    };
   }, [list]);
 
   // item挂载好后重新计算高度
   useEffect(() => {
     updateHeight(renderListWithCache);
-    updateSlider();
   }, [renderListWithCache]);
 
-  const render = useCallback(() => {
-    const { virtualOffset, calculationList, start, end } = scrollStateRef;
+  useEffect(() => {
+    if (isMounted) {
+      setIsMounted(false);
+      render('reRender');
+      updateSlider();
+      updateScroll();
+    }
+  }, [isMounted]);
+
+  const render = useCallback((key: string) => {
+    // 如何触发render？
+    console.log('render', key);
+    const { virtualOffset, calculationList, start, end, cacheCount } =
+      scrollStateRef;
+
     // 计算出视口要渲染的元素起始的索引
     const headIndex = findIndexOverHeight(calculationList, virtualOffset);
 
@@ -171,6 +204,7 @@ export default memo(function Scroll(props: IScrollProps) {
       (containerHeight / contentHeight) * containerHeight,
       20,
     );
+
     slider.style.height = sliderHeight + 'px';
     // 保存滑块的高度
     setScrollState({
@@ -198,33 +232,79 @@ export default memo(function Scroll(props: IScrollProps) {
       scrollOffset,
     });
   }, []);
+  // 动态更新offset
+  const updateHeight = useCallback((list: ICalculationList[]) => {
+    // 监听滚动容器的高度是否变化
+    // 计算差值
+    const listWp = $listWp.current;
+    if (!listWp) return;
+    const children = listWp.children;
+    if (children && children.length) {
+      const {
+        calculationList,
+        start,
+        virtualOffset,
+        contentHeight,
+        cacheCount,
+      } = scrollStateRef;
+      const oldCacheHeight = sumHeight(
+        calculationList,
+        start,
+        start + cacheCount + 1,
+      );
+      const oldPositionHeight = list.reduce(
+        (prev: number, cur: ICalculationList) => prev + cur.domHeight,
+        0,
+      );
+      list.forEach((item: ICalculationList, index: number) => {
+        // 获取item渲染后的高度
+        const newItemHeight = children[index].getClientRects()[0].height;
+        item.domHeight = newItemHeight;
+        calculationList[index + start].domHeight = newItemHeight;
+      });
+      const newPositionHeight = list.reduce(
+        (prev: number, cur: ICalculationList) => prev + cur.domHeight,
+        0,
+      );
+
+      // 修复拉动滚动条过快导致的滚动跳动
+      let roffset = 0;
+      if (virtualOffset !== 0 && calculationList.length > start + cacheCount) {
+        roffset =
+          sumHeight(calculationList, start, start + cacheCount + 1) -
+          oldCacheHeight;
+        $listWp.current.style.transform = `translateY(-${
+          virtualOffset - sumHeight(calculationList, 0, start) + roffset
+        }px)`;
+      }
+
+      setScrollState({
+        contentHeight: contentHeight + newPositionHeight - oldPositionHeight,
+        virtualOffset: virtualOffset + roffset,
+      });
+      setIsMounted(true);
+    }
+  }, []);
+
+  const calculateCacheCount = useCallback((length: number) => {
+    let cacheCount = 0;
+    const screenCount = Math.ceil(containerHeight / estimateHeight);
+    if (length < screenCount) {
+      cacheCount = 1;
+    } else if (length <= 2 * screenCount) {
+      cacheCount = 2;
+    } else if (length <= 3 * screenCount) {
+      cacheCount = Math.ceil(screenCount / 2);
+    } else if (length >= 3 * screenCount) {
+      cacheCount = screenCount;
+    }
+    return cacheCount;
+  }, []);
 
   //滚动滑轮事件
   /**
    * 这里当数据量过于庞大时，100w左右，如果一瞬间将滚动条拉到底会出现滑动不到最后一个数据情况
    */
-  const mouseWheelHandleFn = useCallback(
-    throttle((e: WheelEvent) => {
-      e.preventDefault();
-      const { calculationList, virtualOffset, contentHeight } = scrollStateRef;
-      if (calculationList.length === 0) return;
-      const scrollSpace = contentHeight - containerHeight;
-      let y = virtualOffset || 0;
-      y += e.deltaY / 3;
-      // 限制滚动范围
-      y = Math.max(y, 0);
-      y = Math.min(y, scrollSpace);
-      setScrollState({
-        virtualOffset: y,
-      });
-      // 刷新滚动
-      render();
-      updateScroll();
-      listenerScrollBottom();
-    }),
-
-    [],
-  );
 
   const listenerScrollBottom = useCallback(() => {
     const { contentHeight, virtualOffset, isCurrentHandleButtom } =
@@ -266,23 +346,6 @@ export default memo(function Scroll(props: IScrollProps) {
       calculationList: newList,
       contentHeight: contentHeight + newHeight,
     });
-  }, []);
-
-  useEffect(() => {
-    $list.current?.addEventListener('wheel', mouseWheelHandleFn);
-    $slider.current?.addEventListener('mousedown', saveScrolloffsetPos);
-    $container.current?.addEventListener('mouseleave', cancelDragging);
-    $container.current?.addEventListener('mouseup', cancelDragging);
-    $slider.current?.addEventListener('click', stopPropagationFn);
-    $container.current?.addEventListener('mousemove', mouseMoveHandleFn);
-    return () => {
-      $list.current?.removeEventListener('wheel', mouseWheelHandleFn);
-      $slider.current?.removeEventListener('mousedown', saveScrolloffsetPos);
-      $container.current?.removeEventListener('mouseup', cancelDragging);
-      $container.current?.removeEventListener('mouseleave', cancelDragging);
-      $slider.current?.removeEventListener('click', stopPropagationFn);
-      $container.current?.removeEventListener('mousemove', mouseMoveHandleFn);
-    };
   }, []);
 
   // 记录滑动距离
@@ -333,7 +396,7 @@ export default memo(function Scroll(props: IScrollProps) {
           virtualOffset: offset,
         });
         // 渲染视口元素
-        render();
+        render('remove');
         // 更新滑块位置
         updateScroll();
         listenerScrollBottom();
@@ -341,53 +404,28 @@ export default memo(function Scroll(props: IScrollProps) {
     }),
     [],
   );
-
-  // 动态更新offset
-  const updateHeight = useCallback((list: ICalculationList[]) => {
-    // 监听滚动容器的高度是否变化
-    // 计算差值
-    const listWp = $listWp.current;
-    if (!listWp) return;
-    const children = listWp.children;
-    if (children && children.length) {
-      const { calculationList, start, virtualOffset, contentHeight } =
-        scrollStateRef;
-      const oldCacheHeight = sumHeight(
-        calculationList,
-        start,
-        start + cacheCount + 1,
-      );
-      const oldPositionHeight = list.reduce(
-        (prev: number, cur: ICalculationList) => prev + cur.domHeight,
-        0,
-      );
-      list.forEach((item: ICalculationList, index: number) => {
-        // 获取item渲染后的高度
-        const newItemHeight = children[index].getClientRects()[0].height;
-        item.domHeight = newItemHeight;
-        calculationList[index + start].domHeight = newItemHeight;
-      });
-      const newPositionHeight = list.reduce(
-        (prev: number, cur: ICalculationList) => prev + cur.domHeight,
-        0,
-      );
-
-      // 修复拉动滚动条过快导致的滚动跳动
-      let roffset = 0;
-      if (virtualOffset !== 0 && calculationList.length > start + cacheCount) {
-        roffset =
-          sumHeight(calculationList, start, start + cacheCount + 1) -
-          oldCacheHeight;
-        $listWp.current.style.transform = `translateY(-${
-          virtualOffset - sumHeight(calculationList, 0, start) + roffset
-        }px)`;
-      }
+  const mouseWheelHandleFn = useCallback(
+    throttle((e: WheelEvent) => {
+      e.preventDefault();
+      const { calculationList, virtualOffset, contentHeight } = scrollStateRef;
+      if (calculationList.length === 0) return;
+      const scrollSpace = contentHeight - containerHeight;
+      let y = virtualOffset || 0;
+      y += e.deltaY / 3;
+      // 限制滚动范围
+      y = Math.max(y, 0);
+      y = Math.min(y, scrollSpace);
       setScrollState({
-        contentHeight: contentHeight + newPositionHeight - oldPositionHeight,
-        virtualOffset: virtualOffset + roffset,
+        virtualOffset: y,
       });
-    }
-  }, []);
+      // 刷新滚动
+      render('wheel');
+      updateScroll();
+      listenerScrollBottom();
+    }),
+
+    [],
+  );
   return (
     <>
       {/* <div>总高度：{scrollStateRef.contentHeight}</div>

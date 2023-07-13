@@ -17,10 +17,7 @@ export function generationList(count: number): Promise<unknown[]> {
       const list = new Array(count).fill(0).map((item, index) => ({
         index,
         //h: Math.ceil(Math.random() * 250 + 50),
-        content: faker.lorem.lines({
-          min: 10,
-          max: 20,
-        }),
+        content: Math.ceil(Math.random() * 270 + 100),
       }));
       resolve(list);
     }, 100);
