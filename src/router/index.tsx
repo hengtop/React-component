@@ -1,6 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom';
 
-import Demo from '@/components/VirtualScroll/demo';
+import VirtualScroll from '@/components/VirtualScroll';
 import Home from '@/pages/home';
 
 export const routerConfig = createBrowserRouter([
@@ -10,6 +10,6 @@ export const routerConfig = createBrowserRouter([
   },
   {
     path: '/virtualScroll',
-    element: <Demo />,
+    element: <VirtualScroll />,
   },
 ]);

@@ -1,10 +1,12 @@
+import type { Any } from '@/types';
 import { faker } from '@faker-js/faker';
 
-export function throttle(fn: (...arg: any[]) => any, delay = 16.6) {
+export function throttle(fn: (...arg: Any[]) => Any, delay = 16.6) {
   let start = 0;
-  return (...arg: any[]) => {
+  return (...arg: Any[]) => {
     const cur = Date.now();
     if (cur - start > delay) {
+      // @ts-ignore
       fn.apply(this, arg);
       start = cur;
     }
