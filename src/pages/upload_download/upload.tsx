@@ -1,7 +1,7 @@
 /*
  * @Date: 2022-03-09 14:52:57
  * @LastEditors: zhangheng
- * @LastEditTime: 2024-01-02 21:30:27
+ * @LastEditTime: 2024-04-15 22:04:22
  */
 
 /**
@@ -16,7 +16,7 @@
  */
 import React, { memo, useState, useRef, useCallback } from 'react';
 
-const CHUNK_SIZE = 5;
+const CHUNK_SIZE = 1024 * 1024 * 5;
 
 let controller = new AbortController();
 let signal = controller.signal;
@@ -41,6 +41,7 @@ export default memo(function index() {
     return new Promise((resolve) => {
       const read = new FileReader();
       read.onload = async function (e) {
+        console.log(e.target?.result);
         const fileHash = await getDownLoadFileHash(e.target?.result);
         // 校验
         const {
@@ -183,6 +184,7 @@ export default memo(function index() {
   }
 
   async function getDownLoadFileHash(buffer: BufferSource | ArrayBuffer) {
+    // crypto 只能再安全的上下文使用 https 当然使用localhost是ok的
     const messageDigest = await crypto.subtle.digest('SHA-256', buffer);
     const hashStr = Array.from(new Uint8Array(messageDigest))
       .map((item) => item.toString(16).padStart(2, '0'))
