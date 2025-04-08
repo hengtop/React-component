@@ -1,7 +1,7 @@
 /*
  * @Date: 2022-03-09 14:52:57
  * @LastEditors: zhangheng
- * @LastEditTime: 2024-04-15 22:04:22
+ * @LastEditTime: 2025-04-08 17:38:12
  */
 
 /**
@@ -16,7 +16,7 @@
  */
 import React, { memo, useState, useRef, useCallback } from 'react';
 
-const CHUNK_SIZE = 1024 * 1024 * 5;
+const CHUNK_SIZE = 1024 * 5;
 
 let controller = new AbortController();
 let signal = controller.signal;

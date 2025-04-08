@@ -1,10 +1,13 @@
-import { useState, useRef, useCallback, Fragment } from 'react';
+import { useState, useRef, useCallback, Fragment, useEffect } from 'react';
+
+import { getHexArray, storeHexArray } from './indexDB';
 /**
  * 完成功能
  * 1. 分片下载
  * 2. 文件校验
  * 3. 断点续传
  * 4. 并行控制
+ * 5. 使用indexDB记录下载内容，下次进入浏览器也能继续下载
  */
 // 较长的等待时间：大文件需要较长的时间来传输到客户端，用户需要等待很长时间才能开始使用文件。
 // 网络阻塞：由于下载过程中占用了网络带宽，其他用户可能会遇到下载速度慢的问题。
@@ -16,12 +19,31 @@ const UNIT = 1024 * 100;
 let sizeQueue: any[] = [];
 let controller = new AbortController();
 let signal = controller.signal;
+interface IProps {
+  file: string;
+  hash: string;
+  progress: string;
+}
+
 export default function download() {
+  const dbRef = useRef(null);
   const [url, setUrl] = useState('');
   const [progress, setProgress] = useState('0%');
   const progressRef = useRef<any>(null);
   const fileHash = useRef<any>('');
-  const files = ['1.sketch', '2.png', '3.txt', '4.zip'];
+  const files = ['11268.jpg', 'my-Store.zip'];
+
+  useEffect(() => {
+    initDownload();
+  }, []);
+
+  async function initDownload() {
+    const { hexArray } = await getHexArray(
+      '8fdb4067debf845fa360676bbcd0f5f84e0fcb692f4c2cd3cfbf7ca8ee3367f3',
+    );
+    completeLoading(hexArray ?? []);
+  }
+
   // 存储每一个分片的大小以及下载进度
   const handleDown = async (path: string) => {
     try {
@@ -29,7 +51,7 @@ export default function download() {
       const size = headers?.get('content-length');
       const hash = headers?.get('file-hash');
       fileHash.current = hash;
-      if (!size) return alert('下载失败');
+      if (!size && !hash) return alert('下载失败');
 
       // 分片
       sizeQueue = getFileSlice(+size);
@@ -37,7 +59,8 @@ export default function download() {
       const promiseQueue = sizeQueue.map((item) => {
         const { start, end } = item;
 
-        return () => fetchFileBlob(path, start, end, item.index);
+        return () =>
+          fetchFileBlob(fileHash.current, path, start, end, item.index);
       });
       const dispatch = createTaskDispatch<Blob | undefined>(
         6,
@@ -67,6 +90,8 @@ export default function download() {
           a.href = href;
           a.click();
           URL.revokeObjectURL(href);
+
+          storeHexArray({ hash: fileHash.current });
         },
         {
           signal, // 是否需要中断
@@ -101,6 +126,7 @@ export default function download() {
   }
 
   async function fetchFileBlob(
+    hash: string,
     path: string,
     start: number,
     end: number,
@@ -156,6 +182,11 @@ export default function download() {
                     if (done) {
                       sizeQueue[index].success = true;
                       sizeQueue[index].offset = sizeQueue[index].sliceLength;
+                      await storeHexArray({
+                        hash,
+                        hexArray: sizeQueue,
+                        timestamp: Date.now(),
+                      });
                       break;
                     } else {
                       controller.enqueue(value);
@@ -246,16 +277,21 @@ export default function download() {
     controller.abort();
   };
 
-  const handleStart = (path: string) => {
+  const handleStart = async (path: string) => {
+    fileHash.current =
+      '8fdb4067debf845fa360676bbcd0f5f84e0fcb692f4c2cd3cfbf7ca8ee3367f3';
     controller = new AbortController();
     signal = controller.signal;
+    const { hexArray } = await getHexArray(fileHash.current);
+    sizeQueue = hexArray;
     // 拿到已经保存的数据，重新分片 并下载
     // 返回还没有完成的，重新下载
-    const promiseQueue = sizeQueue
+    const promiseQueue = hexArray
       .filter((item) => !item.success)
       .map((item) => {
         const { offset, end, start, index } = item;
-        return () => fetchFileBlob(path, offset + start, end, index);
+        return () =>
+          fetchFileBlob(fileHash.current, path, offset + start, end, index);
       });
 
     const dispatch = createTaskDispatch<Blob | any>(3, async () => {
@@ -282,6 +318,7 @@ export default function download() {
       a.href = href;
       a.click();
       URL.revokeObjectURL(href);
+      storeHexArray({ hash: fileHash.current });
     });
     dispatch(...promiseQueue);
 
