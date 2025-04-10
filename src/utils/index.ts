@@ -25,3 +25,38 @@ export function generationList(count: number): Promise<unknown[]> {
     }, 100);
   });
 }
+
+export function createTaskDispatch<T = unknown>(
+  max = 5,
+  callback: () => void,
+  options = {},
+) {
+  const untouchedTasks: ((() => Promise<T>) | Promise<T>)[] = [];
+  const size = max;
+
+  const drainUntouchedTasks = () => {
+    if (signal.aborted) throw new Error('dispatch aborted');
+    while (max > 0 && untouchedTasks.length > 0) {
+      let task = untouchedTasks.shift();
+      task = typeof task === 'function' ? task() : task;
+      max--;
+      task &&
+        task
+          .catch((err) => {
+            console.log('err', err);
+          })
+          .finally(() => {
+            max++;
+            drainUntouchedTasks();
+          });
+    }
+    if (untouchedTasks.length <= 0 && max === size) {
+      callback();
+    }
+  };
+
+  return function dispatch(...task: ((() => Promise<T>) | Promise<T>)[]) {
+    untouchedTasks.push(...task);
+    drainUntouchedTasks();
+  };
+}

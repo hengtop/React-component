@@ -86,7 +86,7 @@ async function getHexArray(hash: string): Promise<HexArrayRecord> {
       if (request.result) {
         resolve(request.result);
       } else {
-        reject(new Error('Record not found'));
+        resolve({});
       }
     };
 
