@@ -1,7 +1,7 @@
 /*
  * @Date: 2022-03-09 14:52:57
  * @LastEditors: zhangheng
- * @LastEditTime: 2025-04-08 17:38:12
+ * @LastEditTime: 2025-04-11 15:31:21
  */
 
 /**
@@ -16,7 +16,7 @@
  */
 import React, { memo, useState, useRef, useCallback } from 'react';
 
-const CHUNK_SIZE = 1024 * 5;
+const CHUNK_SIZE = 1024 * 1024 * 20;
 
 let controller = new AbortController();
 let signal = controller.signal;
@@ -69,8 +69,17 @@ export default memo(function index() {
           },
         );
         let uploadChunkArr = [];
+        // 更新下载进度
+        uploadedChunks.forEach((item) => {
+          const index = Number(item.split('-')[1]);
+          progressArr[index] = {
+            loaded: CHUNK_SIZE / file.size,
+          };
+        });
+        console.log('progressArr', progressArr);
         uploadChunkArr = sliceFile(file, CHUNK_SIZE)
           .filter((item) => {
+            // 已经上传的分配无需上传
             return !uploadedChunks.includes(fileHash + '-' + item.index);
           })
           .map((item) => {
@@ -102,6 +111,7 @@ export default memo(function index() {
         progressArr[index] = {
           loaded: e.loaded / totalSize,
         };
+        console.log(progressArr);
         completeLoading(progressArr);
       },
     });
