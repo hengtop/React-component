@@ -3,23 +3,13 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { getHexArray, storeHexArray } from '@/pages/upload_download/indexDB';
 
 import type { IDownloadTask } from '@/pages/upload_download/download';
+import type { IChunk } from '@/pages/upload_download/indexDB';
 
 interface IProps extends IDownloadTask {
   onStop: (e: { hash: string }) => void;
   onStart: (e: { hash: string }) => void;
   onSuccess: (e: { hash: string }) => void;
   onError: (err: unknown, e: { hash: string }) => void;
-}
-
-interface IChunk {
-  index: number;
-  value: null | Uint8Array;
-  start: number;
-  end: number;
-  sliceLength: number;
-  success: boolean;
-  loaded: number;
-  offset: number;
 }
 
 const UNIT = 1024 * 1024 * 5;
@@ -55,7 +45,7 @@ export default function DownloadItem(props: IProps) {
           return () => fetchFileBlob(hash, file, offset + start, end, index);
         });
       // 并发下载，最多6条
-      const dispatch = createTaskDispatch(6);
+      const dispatch = createTaskDispatch(1);
       const callback = async () => {
         const c = sizeQueue.current.map((item) => item.value);
         const blob = new Blob(c, {
@@ -84,7 +74,9 @@ export default function DownloadItem(props: IProps) {
       await dispatch(...promiseQueue);
       callback();
     } catch (error) {
-      onError(error, { hash });
+      if (!signal.aborted) {
+        onError(error, { hash });
+      }
     }
   };
 
@@ -193,10 +185,6 @@ export default function DownloadItem(props: IProps) {
               });
             });
           }
-        })
-        .catch((err) => {
-          // 暂定不算异常
-          if (!signal.aborted) return Promise.reject(err);
         })
     );
   }

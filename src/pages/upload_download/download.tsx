@@ -55,13 +55,20 @@ function downloadReducer(
 export default function download() {
   const [tasks, dispatch] = useReducer(downloadReducer, []);
   const fileHash = useRef<any>('');
-  const files = ['11268.jpg', 'my-Store.zip'];
+  const files = [
+    '11268.jpg',
+    'my-Store.zip',
+    '一键导入图片压缩包 (2).zip',
+    '000009-a-1.zip',
+    'OIP-C.jpg',
+    'UDP_Client.zip',
+  ];
 
   useEffect(() => {
     // 添加到下载列表后自动开启下载
     // 获取当前列表中没有在下载的
-    const downLoadingTasks = tasks.map((item) => item.status === 'ING');
-    if (downLoadingTasks.length <= 5) {
+    const downLoadingTasks = tasks.filter((item) => item.status === 'ING');
+    if (downLoadingTasks.length < 3) {
       const waitTask = tasks.find((item) => item.status === 'WAIT');
       waitTask && handleStatusChange(waitTask, 'ING');
     }

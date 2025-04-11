@@ -1,6 +1,17 @@
+export interface IChunk {
+  index: number;
+  value: null | Uint8Array;
+  start: number;
+  end: number;
+  sliceLength: number;
+  success: boolean;
+  loaded: number;
+  offset: number;
+}
+
 interface HexArrayRecord {
   hash: string; // 唯一随机数作为主键
-  hexArray: string[]; // 16进制字符串数组
+  hexArray: IChunk[]; // 16进制字符串数组
   timestamp: number; // 时间戳
 }
 
@@ -9,9 +20,10 @@ const STORE_NAME = 'fileChunks';
 const DB_VERSION = 1;
 
 class DBManager {
-  static instance = null;
+  static instance: ThisType<unknown>;
   db = null;
   pendingRequests = [];
+  pending = false;
 
   constructor() {
     if (!DBManager.instance) {
@@ -60,7 +72,7 @@ class DBManager {
 
 const dbManager = new DBManager();
 
-async function storeHexArray(record: HexArrayRecord) {
+async function storeHexArray(record: Partial<HexArrayRecord>) {
   const db = await dbManager.getConnection();
 
   return new Promise((resolve, reject) => {
