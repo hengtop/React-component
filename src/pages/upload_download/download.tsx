@@ -56,12 +56,15 @@ export default function download() {
   const [tasks, dispatch] = useReducer(downloadReducer, []);
   const fileHash = useRef<any>('');
   const files = [
-    '11268.jpg',
-    'my-Store.zip',
-    '一键导入图片压缩包 (2).zip',
-    '000009-a-1.zip',
-    'OIP-C.jpg',
-    'UDP_Client.zip',
+    // '11268.jpg',
+    // 'my-Store.zip',
+    // '一键导入图片压缩包 (2).zip',
+    // '000009-a-1.zip',
+    // 'OIP-C.jpg',
+    // 'UDP_Client.zip',
+    // 'someDEV.zip',
+    // 'Bob.zip',
+    'run.zip',
   ];
 
   useEffect(() => {
